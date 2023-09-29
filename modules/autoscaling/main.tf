@@ -16,6 +16,10 @@ resource "aws_launch_template" "template" {
     }
   }
   user_data = base64encode(file("script.sh"))
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.profile.name
+  }
 }
 
 resource "aws_autoscaling_group" "autoscaling_group" {
@@ -44,6 +48,38 @@ resource "aws_autoscaling_policy" "autoscaling_policy" {
   adjustment_type        = "ChangeInCapacity"
   cooldown               = 300
   autoscaling_group_name = aws_autoscaling_group.autoscaling_group.name
+}
+
+data "aws_iam_policy" "AmazonEC2RoleforSSM" {
+  arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+}
+
+data "aws_iam_policy_document" "ec2_assume_role" {
+    statement {
+        actions = ["sts:AssumeRole"]
+
+        principals {
+            type    = "Service"
+            identifiers =["ec2.amazonaws.com"]
+        }
+    }
+}
+
+resource "aws_iam_role" "role" {
+    name = "${var.env}-${var.name}-ssm-role"
+    description = "Allows EC2 instances to call AWS services on your behalf."
+    assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+}
+
+resource "aws_iam_instance_profile" "profile" {
+    name = "${var.env}-${var.name}-profile"
+    path = "/"
+    role = aws_iam_role.role.name
+}
+
+resource "aws_iam_role_policy_attachment" "attachment" {
+    role = aws_iam_role.role.name
+    policy_arn = data.aws_iam_policy.AmazonEC2RoleforSSM.arn
 }
 
 resource "aws_cloudwatch_metric_alarm" "cpu_alarm" {
