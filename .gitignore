@@ -1,0 +1,9 @@
+#.gitignore以外の隠しファイル、ディレクトリを除去
+.*
+!.gitignore
+
+#tfstate除去
+terraform.tfstate*
+
+# terraform.tfvars除去
+terraform.tfvars
